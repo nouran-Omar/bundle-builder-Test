@@ -1,14 +1,40 @@
 # Corewyze Bundle Builder
 
-A data-driven, two-column bundle builder: a 4-step accordion on the left
-(cameras → plan → sensors → extra protection) and a live order-review panel
-on the right that stays in sync with every change.
+A two-column, data-driven product bundle builder for a home security brand.
+Shoppers move through a 4-step accordion on the left (**Cameras → Plan →
+Sensors → Extra Protection**) while a live order-review panel on the right
+mirrors every change instantly — quantities, colors, totals, and savings all
+stay in sync without a page refresh.
 
-Built with **React 18 + TypeScript + Vite + Tailwind CSS**, no backend
-required (the "bonus" JSON-API step was skipped in favor of a well-typed
-local `catalog.json` — see *Tradeoffs* below).
+**Live demo:** https://bundle-builder-test.vercel.app/
+**Stack:** React 18 + TypeScript + Vite + Tailwind CSS (no backend — the
+catalog is a local, strongly-typed JSON file).
 
-## Run it
+---
+
+## Why this README exists
+
+This isn't just a "how to run it" file. Every folder in `src/` has its own
+`README.md` sitting right next to the code, and each one walks through the
+files inside it almost line by line — what each piece of state does, why a
+component is shaped the way it is, and what would break if you removed it.
+The idea is that anyone (including future-you, six months from now) can open
+any folder and understand it without having to reverse-engineer the whole
+app first.
+
+| Folder | What's documented there |
+|---|---|
+| [`src/README.md`](./src/README.md) | App shell (`App.tsx`), entry point (`main.tsx`), global styles, and how the whole tree fits together |
+| [`src/components/README.md`](./src/components/README.md) | Every UI component: the accordion step, product cards, plan radio cards, variant chips, quantity stepper, review panel |
+| [`src/components/icons/README.md`](./src/components/icons/README.md) | The hand-exported SVG icon set and why they're inline React components instead of image files |
+| [`src/hooks/README.md`](./src/hooks/README.md) | `useBundleStore` — the single hook that owns all application state |
+| [`src/lib/README.md`](./src/lib/README.md) | `pricing.ts` — every pure function that turns raw quantities into money |
+| [`src/data/README.md`](./src/data/README.md) | `catalog.json` — the single source of truth for every product |
+| [`public/images/README.md`](./public/images/README.md) | Where real product photography goes, and how the naming convention wires itself up automatically |
+
+---
+
+## Quick start
 
 Requires Node 18+.
 
@@ -20,127 +46,96 @@ npm run dev       # http://localhost:5173
 Other scripts:
 
 ```bash
-npm run build      # type-checks then builds to /dist
+npm run build      # tsc -b (type-check) then vite build -> /dist
 npm run preview    # serves the production build locally
 ```
 
-## Project structure
+---
+
+## Project structure at a glance
 
 ```
-src/
-  data/catalog.json        # the single source of truth for every product,
-                            # its variants, prices, and seed quantities
-  types.ts                 # shared domain types (Product, Variant, Catalog…)
-  lib/pricing.ts            # pure functions: line totals, grouping, grand total
-  hooks/useBundleStore.ts  # all app state: quantities, active variant per
-                            # product, open accordion step, localStorage sync
-  components/
-    BuilderStep.tsx         # one accordion step (header + its product grid)
-    StepHeader.tsx          # "STEP X OF 4" header row shared by every step
-    ProductCard.tsx         # camera/sensor/accessory card (badge, variants,
-                            # stepper, pricing, selected-state border)
-    PlanOption.tsx          # radio-style plan card (no stepper — the plan
-                            # step is single-select)
-    VariantSelector.tsx     # the color/variant chip row
-    QuantityStepper.tsx     # shared +/- control, used on cards AND in the
-                            # review panel so they can never drift apart
-    ReviewPanel.tsx         # "Your security system" summary + totals
-public/images/              # where real Figma-exported product photos go
-                            # (see public/images/README.md)
+.
+├── index.html                 # single HTML shell; loads /src/main.tsx as a module
+├── vite.config.ts             # Vite + @vitejs/plugin-react, otherwise defaults
+├── tailwind.config.js         # design-token color/font/breakpoint mapping
+├── postcss.config.js          # tailwindcss + autoprefixer pipeline
+├── tsconfig.json              # strict TS config, bundler resolution, no emit
+├── public/
+│   ├── favicon.svg
+│   └── images/                # real product photography lives here (see its README)
+└── src/
+    ├── main.tsx                # React root, mounts <App /> in StrictMode
+    ├── App.tsx                 # page layout: builder column + review sidebar
+    ├── index.css               # Tailwind layers + CSS custom properties (design tokens)
+    ├── types.ts                 # every shared TypeScript interface/type
+    ├── data/
+    │   └── catalog.json         # every product, price, variant and seed quantity
+    ├── lib/
+    │   └── pricing.ts            # pure pricing/grouping/formatting functions
+    ├── hooks/
+    │   └── useBundleStore.ts     # all React state + localStorage/sessionStorage sync
+    └── components/
+        ├── BuilderStep.tsx       # one accordion step (header + its grid of products)
+        ├── StepHeader.tsx        # "STEP X OF 4" clickable disclosure header
+        ├── ProductCard.tsx       # camera / sensor / accessory card
+        ├── PlanOption.tsx        # radio-style plan card (single-select step)
+        ├── VariantSelector.tsx   # color chip row on a product card
+        ├── QuantityStepper.tsx   # shared +/- counter (used in cards AND review panel)
+        ├── ReviewPanel.tsx       # "Your security system" live summary + checkout
+        └── icons/
+            └── Icons.tsx          # every inline SVG icon used across the app
 ```
 
-## How the data model works
+---
 
-Every product lives in `catalog.json` under one of four categories
-(`cameras`, `plan`, `sensors`, `accessories`). Nothing about a specific
-product is hardcoded into a component — add a fifth camera or a third plan
-tier by editing the JSON only.
+## How the pieces talk to each other
 
-- **Quantities** are stored in a single flat map keyed by
-  `` `${productId}::${variantId ?? "_default"}` ``. That's what makes the
-  variant behavior in the spec work correctly: Red and Blue of the same
-  camera are genuinely separate counters, and switching the active color chip
-  only changes *which* counter the stepper is currently pointed at — it never
-  merges or resets the other variant's count.
-- **`activeVariant`** tracks which chip is "selected" per product, purely for
-  display/stepper-binding purposes (per the brief, chip highlight styling
-  itself wasn't required).
-- The **plan** category is flagged `singleSelect: true`. Picking a plan
-  zeroes every sibling in that category, which is what gives it radio-button
-  behavior while reusing the exact same quantity map as everything else.
-- The **review panel never re-implements pricing**. It calls the same
-  `computeTotals` / `selectedLineItems` helpers the builder cards use, so the
-  "N selected" counters, the line prices, and the grand total are always
-  derived from one place.
+```
+catalog.json
+      │  (typed as Catalog)
+      ▼
+useBundleStore()  ──────────────► holds: quantities, activeVariant, openStep
+      │                                    │
+      │ passes data + setters down         │ persisted to localStorage
+      ▼                                    ▼
+   App.tsx  ──renders──►  BuilderStep (×4)         ReviewPanel
+                              │                          │
+                     ProductCard / PlanOption      selectedLineItems()
+                     VariantSelector                computeTotals()
+                     QuantityStepper  ◄───────────────────┘
+                                        (same component, same math,
+                                         used on both sides of the screen)
+```
 
-## Persistence ("Save my system for later")
+The whole app is built around **one rule**: nothing except
+`useBundleStore.ts` is allowed to hold state, and nothing except
+`lib/pricing.ts` is allowed to do math. Components only receive props and
+call callbacks. That's what keeps the builder cards and the review panel
+from ever showing two different numbers for the same product.
 
-Clicking **Save my system for later** writes the full state (quantities,
-active variants, which step is open) to `localStorage` under
-`corewyze:bundle-builder:v1`. On load, `useBundleStore` reads that key back
-before falling back to the seeded defaults — so configure → save → reload →
-it's exactly as you left it. The current in-progress session is also
-mirrored to `sessionStorage` on every change as a safety net against an
-accidental refresh before the shopper has explicitly saved.
+## Deployment
 
-## Motion & layout
+The app is deployed on **Vercel** as a static Vite build
+(`npm run build` → `/dist`, served as a static site — there is no server
+runtime because there's no backend). The live instance is at
+https://bundle-builder-test.vercel.app/. Any push that changes the
+`main`/production branch triggers a new Vercel build automatically; no
+environment variables are required since `catalog.json` is bundled directly
+into the client build.
 
-- The accordion doesn't just mount/unmount — each step's body animates open
-  and closed over 500ms using a `grid-template-rows: 0fr → 1fr` transition
-  (paired with an opacity fade), so expanding a step actually "drops down"
-  instead of popping into place. Collapsed panels get `inert` so keyboard
-  and screen-reader users can't tab into hidden content.
-- Hover/selection feedback (cards, chips, steppers, buttons) uses a
-  deliberate 300ms color transition rather than an instant snap.
-- Layout leans on **CSS Grid** for structure — the page shell is a
-  `grid-cols-[1fr_399px]` two-column grid on desktop, and each step's
-  product cards sit in a `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` grid —
-  with **Flexbox** used inside individual cards/rows for alignment.
+## Design decisions worth knowing about
 
-## Responsiveness
-
-The two columns stack (builder first, review panel second) below the `lg`
-breakpoint, product cards drop from a fixed width to `flex-1 min-w-[…]`
-so they wrap naturally, and the review panel becomes `sticky` only once
-there's room for it beside the builder. All interactive targets keep a
-visible focus ring (`focus-ring` utility) for keyboard use.
-
-## Tradeoffs / what's simplified vs. the Figma file
-
-- **Images**: `catalog.json` now points at the exact filenames from your
-  exported Figma asset folder (`wyze-cam-v4.png`, `wyze-cam-v4-gray.png`,
-  `wyze-cam-v4-black.png`, `wyze-cam-pan-v3-white.png`, etc. — see
-  `public/images/README.md` for the full list). Drop your actual PNG/SVG
-  files into `public/images/` with those names and every card and review
-  line picks them up automatically, no code changes needed.
-- **Per-unit vs. line-total pricing**: the Figma mockup shows Wyze Cam Pan
-  v3's price as if it were a fixed line total ($47.98 at qty 2) rather than
-  a per-unit price × quantity. Since the brief explicitly requires the total
-  to *recalculate* as quantities change, I treat every price in the catalog
-  as **per-unit** and multiply by quantity everywhere. This reproduces the
-  exact numbers shown in the screenshots at the seeded quantities, but if you
-  change a quantity the math stays internally consistent rather than copying
-  the mockup's apparent inconsistency.
-- **"as low as $X/mo" financing line**: the source design doesn't specify the
-  financing formula, so this is a placeholder estimate, not a real financing
-  integration.
-- **Plan step** only ships two example tiers (Cam Unlimited / Cam Basic) — the
-  brief's screenshots only ever show one plan selected with no second option
-  visible, so a second tier was invented to make the single-select behavior
-  demonstrable.
-- **Checkout** is a placeholder alert, as explicitly allowed by the brief.
-- No backend/API layer (the "bonus" requirement) — `catalog.json` is bundled
-  directly. Swapping it for a fetch from a small Express/Next route would
-  only touch `useBundleStore`'s initial load.
-
-## Accessibility & SEO notes
-
-- Each accordion step is a proper disclosure: `aria-expanded` /
-  `aria-controls` on the trigger, `role="region"` + `aria-labelledby` on the
-  panel.
-- Quantity steppers use `<output>` with `aria-label`s that name the exact
-  product (and variant, in the review panel) they control.
-- The plan step uses `role="radiogroup"` / `role="radio"` since only one
-  selection is meaningful at a time.
-- `index.html` ships a descriptive `<title>`, meta description, canonical
-  tag, and Open Graph / Twitter card tags for link previews.
+- **No backend.** The brief allowed a "bonus" JSON API step; it was
+  intentionally skipped in favor of a bundled, strongly-typed
+  `src/data/catalog.json`. Swapping it for a real fetch later only touches
+  `useBundleStore`'s initial-load logic — nothing else needs to change.
+- **Per-unit pricing everywhere.** Every price in the catalog is a per-unit
+  price multiplied by quantity, so totals always recalculate correctly when
+  a shopper changes a quantity, instead of ever showing a stale, hard-coded
+  line total.
+- **One quantity map, not scattered `useState` calls.** Every selectable
+  thing on the page — a camera in white, the same camera in black, the plan,
+  a sensor — is a single flat key in one object. See
+  [`src/hooks/README.md`](./src/hooks/README.md) for exactly how that key is
+  built and why it matters.

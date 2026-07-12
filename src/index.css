@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --corewyze-purple: rgba(78, 47, 210, 1);
+  --gray-c200: rgba(240, 244, 247, 1);
+  --gray-c300: rgba(230, 235, 240, 1);
+  --gray-c500: rgba(168, 178, 189, 1);
+  --gray-c600: rgba(111, 120, 130, 1);
+  --gray-cobsidian: rgba(11, 13, 16, 1);
+  --gray-cwhite: rgba(255, 255, 255, 1);
+  --review-bg: rgba(237, 244, 255, 1);
+  --utility-white: rgba(255, 255, 255, 1);
+}
+
+@layer base {
+  button,
+  input,
+  select,
+  textarea {
+    @apply appearance-none bg-transparent border-0 outline-none;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .all-unset {
+    all: unset;
+  }
+
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--corewyze-purple);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
